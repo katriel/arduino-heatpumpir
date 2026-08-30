@@ -184,7 +184,7 @@ GreeYAPHeatpumpIR::GreeYAPHeatpumpIR() : GreeiFeelHeatpumpIR()
 const GreeHeatpumpIR::Timings & GreeHeatpumpIR::getTimings() const {
     static Timings timings = {
         9000,
-        4000,
+        4500,
         620,
         1600,
         540,
