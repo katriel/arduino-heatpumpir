@@ -199,6 +199,8 @@ class GreeYTHeatpumpIR : public GreeiFeelHeatpumpIR
             uint8_t fanSpeed, uint8_t temperature,
             uint8_t swingV, uint8_t swingH,
             bool turboMode, bool iFeelMode) override;
+
+    virtual void calculateChecksum(uint8_t * buffer) override;
 };
 
 class GreeYAPHeatpumpIR : public GreeiFeelHeatpumpIR
