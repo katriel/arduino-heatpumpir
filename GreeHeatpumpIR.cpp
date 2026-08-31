@@ -186,7 +186,7 @@ const GreeHeatpumpIR::Timings & GreeHeatpumpIR::getTimings() const {
         620,
         1600,
         540,
-        19000,
+        20000,
         8200,
         3800,
         650,
