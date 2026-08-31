@@ -20,28 +20,26 @@ void convert_params(
   {
     powerMode = GREE_AIRCON1_POWER_OFF;
   }
-  else
+
+  switch (operatingModeCmd)
   {
-    switch (operatingModeCmd)
-    {
-      case MODE_AUTO:
-        operatingMode = GREE_AIRCON1_MODE_AUTO;
-        temperatureCmd = 25;
-        break;
-      case MODE_HEAT:
-        operatingMode = GREE_AIRCON1_MODE_HEAT;
-        break;
-      case MODE_COOL:
-        operatingMode = GREE_AIRCON1_MODE_COOL;
-        break;
-      case MODE_DRY:
-        operatingMode = GREE_AIRCON1_MODE_DRY;
-        fanSpeedCmd = FAN_1;
-        break;
-      case MODE_FAN:
-        operatingMode = GREE_AIRCON1_MODE_FAN;
-        break;
-    }
+    case MODE_AUTO:
+      operatingMode = GREE_AIRCON1_MODE_AUTO;
+      temperatureCmd = 25;
+      break;
+    case MODE_HEAT:
+      operatingMode = GREE_AIRCON1_MODE_HEAT;
+      break;
+    case MODE_COOL:
+      operatingMode = GREE_AIRCON1_MODE_COOL;
+      break;
+    case MODE_DRY:
+      operatingMode = GREE_AIRCON1_MODE_DRY;
+      fanSpeedCmd = FAN_1;
+      break;
+    case MODE_FAN:
+      operatingMode = GREE_AIRCON1_MODE_FAN;
+      break;
   }
 
   switch (fanSpeedCmd)
@@ -345,24 +343,60 @@ void GreeYTHeatpumpIR::generateCommand(uint8_t * buffer,
             uint8_t fanSpeed, uint8_t temperature,
             uint8_t swingV, uint8_t swingH,
             bool turboMode, bool iFeelMode) {
-  GreeiFeelHeatpumpIR::generateCommand(buffer,
-      powerMode, operatingMode,
-      fanSpeed, temperature,
-      swingV, swingH,
-      turboMode, iFeelMode);
+  memset(buffer, 0, 8);
 
-  buffer[2] = GREE_LIGHT_BIT | GREE_HEALTH_BIT; // HEALTH is always on for GREE_YT
-  buffer[3] = 0x50; // bits 4..7 always 0101
+  // Byte 0: Mode (bits 0..2), Power (bit 3), Fan speed (bits 4..5), Swing auto (bit 6), Sleep (bit 7)
+  buffer[0] = (fanSpeed & 0x30) | (powerMode & 0x08) | (operatingMode & 0x07);
+
+  if (swingV == GREE_VDIR_SWING)
+  {
+    buffer[0] |= GREE_VSWING; // Enable vertical swing by setting bit 6
+  }
+
+  // Byte 1: Temperature (bits 0..3)
+  buffer[1] = temperature & 0x0F;
+
+  // Byte 2: Turbo (bit 4), Light (bit 5), Health/Model (bit 6), X-Fan (bit 7)
+  buffer[2] = GREE_LIGHT_BIT | GREE_HEALTH_BIT; // Light (0x20) and Health (0x40) always ON for YT1F
 
   if (turboMode)
   {
     buffer[2] |= GREE_TURBO_BIT;
   }
-  if (swingV == GREE_VDIR_SWING)
+
+  // Byte 3: bits 4..7 always 0101 (0x50)
+  buffer[3] = 0x50;
+
+  // Byte 4: (not transmitted directly; 3-bit footer '010' is sent in sendBuffer)
+  buffer[4] = 0x00;
+
+  // Byte 5: Manual vertical swing position (bits 0..2) and IFeel (bit 3)
+  if (swingV != GREE_VDIR_AUTO && swingV != GREE_VDIR_SWING)
   {
-    buffer[0] |= GREE_VSWING; // Enable swing by setting bit 6
-    buffer[4] = swingV;
+    buffer[5] = swingV & 0x0F;
   }
+  if (iFeelMode)
+  {
+    buffer[5] |= GREE_IFEEL_BIT;
+  }
+
+  // Byte 6: bits 4..7 always 0010 (0x20) for YT1F remote
+  buffer[6] = 0x20;
+
+  // Byte 7: 0x00
+  buffer[7] = 0x00;
+}
+
+void GreeYTHeatpumpIR::calculateChecksum(uint8_t * buffer) {
+  buffer[8] = (((
+   (buffer[0] & 0x0F) +
+   (buffer[1] & 0x0F) +
+   (buffer[2] & 0x0F) +
+   (buffer[3] & 0x0F) +
+   ((buffer[5] & 0xF0) >> 4) +
+   ((buffer[6] & 0xF0) >> 4) +
+   ((buffer[7] & 0xF0) >> 4) +
+    0x0A) & 0x0F) << 4) | (buffer[7] & 0x0F);
 }
 
 void GreeYAPHeatpumpIR::generateCommand(uint8_t * buffer,
