@@ -179,6 +179,52 @@ GreeYAPHeatpumpIR::GreeYAPHeatpumpIR() : GreeiFeelHeatpumpIR()
   _info = info;
 }
 
+GreeYB1FAHeatpumpIR::GreeYB1FAHeatpumpIR() : GreeHeatpumpIR()
+{
+  static const char model[] PROGMEM = "greeyb1fa";
+  static const char info[]  PROGMEM = "{\"mdl\":\"greeyb1fa\",\"dn\":\"Gree YB1FA\",\"mT\":16,\"xT\":30,\"fs\":3}";
+
+  _model = model;
+  _info = info;
+}
+
+void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
+            uint8_t powerMode, uint8_t operatingMode,
+            uint8_t fanSpeed, uint8_t temperature,
+            uint8_t swingV, uint8_t swingH,
+            bool turboMode, bool iFeelMode) {
+            
+  // 1. Start with the standard Gree payload (generates bytes 0 and 1)
+  GreeHeatpumpIR::generateCommand(buffer,
+      powerMode, operatingMode,
+      fanSpeed, temperature,
+      swingV, swingH,
+      turboMode, iFeelMode);
+
+  // 2. Apply the YAA payload bits (matches your physical remote's data layout)
+  buffer[2] = GREE_LIGHT_BIT; // Light on, Health off
+  buffer[3] = 0x50; 
+  buffer[5] |= 0x20;
+  buffer[6] = 0x20; 
+
+  if (turboMode) {
+    buffer[2] |= GREE_TURBO_BIT;
+  }
+  if (swingV == GREE_VDIR_SWING) {
+    buffer[0] |= GREE_VSWING; 
+  } else if (swingV != GREE_VDIR_AUTO) {
+    buffer[5] = swingV;
+  }
+}
+
+void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
+  // 3. Apply the YAN checksum math (matches your physical remote's checksum byte)
+  buffer[8] = (
+    (buffer[0] << 4) +
+    (buffer[1] << 4) +
+    0xC0);
+}
+
 const GreeHeatpumpIR::Timings & GreeHeatpumpIR::getTimings() const {
     static Timings timings = {
         9000,
