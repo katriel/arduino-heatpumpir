@@ -179,6 +179,7 @@ GreeYAPHeatpumpIR::GreeYAPHeatpumpIR() : GreeiFeelHeatpumpIR()
   _info = info;
 }
 
+// Support for YB1FA remote
 GreeYB1FAHeatpumpIR::GreeYB1FAHeatpumpIR() : GreeHeatpumpIR()
 {
   static const char model[] PROGMEM = "greeyb1fa";
@@ -186,43 +187,6 @@ GreeYB1FAHeatpumpIR::GreeYB1FAHeatpumpIR() : GreeHeatpumpIR()
 
   _model = model;
   _info = info;
-}
-
-void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
-            uint8_t powerMode, uint8_t operatingMode,
-            uint8_t fanSpeed, uint8_t temperature,
-            uint8_t swingV, uint8_t swingH,
-            bool turboMode, bool iFeelMode) {
-            
-  // 1. Start with the standard Gree payload (generates bytes 0 and 1)
-  GreeHeatpumpIR::generateCommand(buffer,
-      powerMode, operatingMode,
-      fanSpeed, temperature,
-      swingV, swingH,
-      turboMode, iFeelMode);
-
-  // 2. Apply the YAA payload bits (matches your physical remote's data layout)
-  buffer[2] = GREE_LIGHT_BIT; // Light on, Health off
-  buffer[3] = 0x50; 
-  buffer[5] |= 0x20;
-  buffer[6] = 0x20; 
-
-  if (turboMode) {
-    buffer[2] |= GREE_TURBO_BIT;
-  }
-  if (swingV == GREE_VDIR_SWING) {
-    buffer[0] |= GREE_VSWING; 
-  } else if (swingV != GREE_VDIR_AUTO) {
-    buffer[5] = swingV;
-  }
-}
-
-void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
-  // 3. Apply the YAN checksum math (matches your physical remote's checksum byte)
-  buffer[8] = (
-    (buffer[0] << 4) +
-    (buffer[1] << 4) +
-    0xC0);
 }
 
 const GreeHeatpumpIR::Timings & GreeHeatpumpIR::getTimings() const {
@@ -346,6 +310,36 @@ void GreeiFeelHeatpumpIR::generateCommand(uint8_t * buffer,
 
   if (iFeelMode) {
     buffer[5] |= GREE_IFEEL_BIT;
+  }
+}
+
+void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
+            uint8_t powerMode, uint8_t operatingMode,
+            uint8_t fanSpeed, uint8_t temperature,
+            uint8_t swingV, uint8_t swingH,
+            bool turboMode, bool iFeelMode) {
+
+  // 1. Standard Gree Mode/Temp (Bytes 0 and 1)
+  GreeHeatpumpIR::generateCommand(buffer,
+      powerMode, operatingMode,
+      fanSpeed, temperature,
+      swingV, swingH,
+      turboMode, iFeelMode);
+
+  // 2. Exact Auxiliary Signature for YB1FA
+  buffer[2] = 0x00; // Light off
+  buffer[3] = 0x60; // Hardware signature byte
+  buffer[4] = 0x00; // Hardware signature byte
+  buffer[5] = 0x20;
+  buffer[6] = 0x00;
+
+  if (turboMode) {
+    buffer[2] |= GREE_TURBO_BIT;
+  }
+  if (swingV == GREE_VDIR_SWING) {
+    buffer[0] |= GREE_VSWING; 
+  } else if (swingV != GREE_VDIR_AUTO) {
+    buffer[5] = swingV;
   }
 }
 
