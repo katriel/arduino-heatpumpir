@@ -318,22 +318,28 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
             uint8_t fanSpeed, uint8_t temperature,
             uint8_t swingV, uint8_t swingH,
             bool turboMode, bool iFeelMode) {
-            
-  // 1. Standard Gree Mode/Temp (Bytes 0 and 1)
+
   GreeHeatpumpIR::generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
 
-  // 2. The True YB1FA Signature Bytes (Decoded perfectly from log)
   buffer[2] = 0xC0; 
-  buffer[3] = 0x40;
+  buffer[3] = 0xA0;
+  buffer[4] = 0x00; 
   buffer[5] = 0x00; 
   buffer[6] = 0x80; 
-  // buffer[7] is 0x00 by default from memset
+
+  if (turboMode) {
+    buffer[2] |= GREE_TURBO_BIT;
+  }
+  if (swingV == GREE_VDIR_SWING) {
+    buffer[0] |= GREE_VSWING; 
+  } else if (swingV != GREE_VDIR_AUTO) {
+    buffer[5] = swingV;
+  }
 }
 
 void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
   buffer[8] = ((buffer[0] << 4) + (buffer[1] << 4) + 0xC0);
 }
-
 void GreeYB1FAHeatpumpIR::sendGree(IRSender& IR, uint8_t powerMode, uint8_t operatingMode, uint8_t fanSpeed, uint8_t temperature, uint8_t swingV, uint8_t swingH, bool turboMode, bool iFeelMode) {
   uint8_t buffer[9];
   generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
