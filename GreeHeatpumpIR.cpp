@@ -325,14 +325,14 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
       fanSpeed, temperature,
       swingV, swingH,
       turboMode, iFeelMode);
-  
-  // 2. Exact Auxiliary Signature for YB1FA
-  buffer[2] = 0x00; // Light off
-  buffer[3] = 0x60; // Hardware signature byte
-  buffer[4] = 0x00; // Hardware signature byte
-  buffer[5] = 0x20;
-  buffer[6] = 0x00;
 
+  // 2. Exact Auxiliary Signature for YB1FA (Corrected)
+  buffer[2] = 0x00; 
+  buffer[3] = 0x83; // Corrected Byte 3
+  buffer[5] = 0x00; // Corrected Byte 5
+  buffer[6] = 0x20; // Corrected Byte 6
+
+  // 3. Keep Turbo/Swing toggles intact
   if (turboMode) {
     buffer[2] |= GREE_TURBO_BIT;
   }
@@ -342,7 +342,6 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
     buffer[5] = swingV;
   }
 }
-
 void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
   // YAN checksum math (matches your physical remote's checksum byte perfectly)
   buffer[8] = (
