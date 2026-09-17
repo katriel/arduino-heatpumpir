@@ -318,36 +318,56 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
             uint8_t fanSpeed, uint8_t temperature,
             uint8_t swingV, uint8_t swingH,
             bool turboMode, bool iFeelMode) {
+            
+  GreeHeatpumpIR::generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
 
-  // 1. Standard Gree Mode/Temp (Bytes 0 and 1)
-  GreeHeatpumpIR::generateCommand(buffer,
-      powerMode, operatingMode,
-      fanSpeed, temperature,
-      swingV, swingH,
-      turboMode, iFeelMode);
-
-  // 2. Exact Auxiliary Signature for YB1FA (Corrected)
-  buffer[2] = 0x00; 
-  buffer[3] = 0x83; // Corrected Byte 3
-  buffer[5] = 0x00; // Corrected Byte 5
-  buffer[6] = 0x20; // Corrected Byte 6
-
-  // 3. Keep Turbo/Swing toggles intact
-  if (turboMode) {
-    buffer[2] |= GREE_TURBO_BIT;
-  }
-  if (swingV == GREE_VDIR_SWING) {
-    buffer[0] |= GREE_VSWING; 
-  } else if (swingV != GREE_VDIR_AUTO) {
-    buffer[5] = swingV;
-  }
+  buffer[2] = 0xC0; 
+  buffer[3] = 0x40;
+  buffer[4] = 0x00; 
+  buffer[5] = 0x04; 
+  buffer[6] = 0x00; 
 }
+
 void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
-  // YAN checksum math (matches your physical remote's checksum byte perfectly)
-  buffer[8] = (
-    (buffer[0] << 4) +
-    (buffer[1] << 4) +
-    0xC0);
+  buffer[8] = ((buffer[0] << 4) + (buffer[1] << 4) + 0xC0);
+}
+
+void GreeYB1FAHeatpumpIR::sendGree(IRSender& IR, uint8_t powerMode, uint8_t operatingMode, uint8_t fanSpeed, uint8_t temperature, uint8_t swingV, uint8_t swingH, bool turboMode, bool iFeelMode) {
+  uint8_t buffer[9];
+  generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
+  calculateChecksum(buffer);
+
+  const auto & timings = getTimings();
+  IR.setFrequency(38);
+  
+  // Header
+  IR.mark(timings.hdr_mark);
+  IR.space(timings.hdr_space);
+
+  // Payload part 1 (Bytes 0, 1, 2, 3)
+  for (size_t i = 0; i < 4; i++) {
+    IR.sendIRbyte(buffer[i], timings.bit_mark, timings.zero_space, timings.one_space);
+  }
+
+  IR.mark(timings.bit_mark);
+  IR.space(timings.one_space);  // 1
+  IR.mark(timings.bit_mark);
+  IR.space(timings.zero_space); // 0
+  IR.mark(timings.bit_mark);
+  IR.space(timings.one_space);  // 1
+
+  // Middle Message Space
+  IR.mark(timings.bit_mark);
+  IR.space(timings.msg_space);
+
+  // Payload part 2 (Bytes 5, 6, 7, 8)
+  for (size_t i = 5; i < 9; i++) {
+    IR.sendIRbyte(buffer[i], timings.bit_mark, timings.zero_space, timings.one_space);
+  }
+
+  // End mark
+  IR.mark(timings.bit_mark);
+  IR.space(0);
 }
 
 void GreeYACHeatpumpIR::generateCommand(uint8_t * buffer,
