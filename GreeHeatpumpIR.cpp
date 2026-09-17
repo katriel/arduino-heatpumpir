@@ -321,11 +321,9 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
 
   GreeHeatpumpIR::generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
 
-  buffer[2] = 0xC0; 
-  buffer[3] = 0xA0;
-  buffer[4] = 0x00; 
-  buffer[5] = 0x00; 
-  buffer[6] = 0x80; 
+  buffer[2] = 0x60; // Light on (0x20) | Health on (0x40)
+  buffer[3] = 0x50; // Standard Gree signature bits 4..7 (0101)
+  buffer[6] = 0x20; // YB1FA signature bits 4..7 (0010)
 
   if (turboMode) {
     buffer[2] |= GREE_TURBO_BIT;
@@ -335,46 +333,6 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
   } else if (swingV != GREE_VDIR_AUTO) {
     buffer[5] = swingV;
   }
-}
-
-void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
-  buffer[8] = ((buffer[0] << 4) + (buffer[1] << 4) + 0xC0);
-}
-void GreeYB1FAHeatpumpIR::sendGree(IRSender& IR, uint8_t powerMode, uint8_t operatingMode, uint8_t fanSpeed, uint8_t temperature, uint8_t swingV, uint8_t swingH, bool turboMode, bool iFeelMode) {
-  uint8_t buffer[9];
-  generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
-  calculateChecksum(buffer);
-
-  const auto & timings = getTimings();
-  IR.setFrequency(38);
-  
-  // Header
-  IR.mark(timings.hdr_mark);
-  IR.space(timings.hdr_space);
-
-  // Payload part 1 (Bytes 0, 1, 2, 3)
-  for (size_t i = 0; i < 4; i++) {
-    IR.sendIRbyte(buffer[i], timings.bit_mark, timings.zero_space, timings.one_space);
-  }
-
-  // THE MISSING LINK: YB1FA uses '1010' gap
-  IR.mark(timings.bit_mark); IR.space(timings.one_space);  // 1
-  IR.mark(timings.bit_mark); IR.space(timings.zero_space); // 0
-  IR.mark(timings.bit_mark); IR.space(timings.one_space);  // 1
-  IR.mark(timings.bit_mark); IR.space(timings.zero_space); // 0
-
-  // Middle Message Space
-  IR.mark(timings.bit_mark);
-  IR.space(timings.msg_space);
-
-  // Payload part 2 (Bytes 5, 6, 7, 8)
-  for (size_t i = 5; i < 9; i++) {
-    IR.sendIRbyte(buffer[i], timings.bit_mark, timings.zero_space, timings.one_space);
-  }
-
-  // End mark
-  IR.mark(timings.bit_mark);
-  IR.space(0);
 }
 
 void GreeYACHeatpumpIR::generateCommand(uint8_t * buffer,
