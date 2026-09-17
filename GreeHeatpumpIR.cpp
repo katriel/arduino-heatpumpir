@@ -319,13 +319,15 @@ void GreeYB1FAHeatpumpIR::generateCommand(uint8_t * buffer,
             uint8_t swingV, uint8_t swingH,
             bool turboMode, bool iFeelMode) {
             
+  // 1. Standard Gree Mode/Temp (Bytes 0 and 1)
   GreeHeatpumpIR::generateCommand(buffer, powerMode, operatingMode, fanSpeed, temperature, swingV, swingH, turboMode, iFeelMode);
 
+  // 2. The True YB1FA Signature Bytes (Decoded perfectly from log)
   buffer[2] = 0xC0; 
   buffer[3] = 0x40;
-  buffer[4] = 0x00; 
-  buffer[5] = 0x04; 
-  buffer[6] = 0x00; 
+  buffer[5] = 0x00; 
+  buffer[6] = 0x80; 
+  // buffer[7] is 0x00 by default from memset
 }
 
 void GreeYB1FAHeatpumpIR::calculateChecksum(uint8_t * buffer) {
@@ -349,12 +351,11 @@ void GreeYB1FAHeatpumpIR::sendGree(IRSender& IR, uint8_t powerMode, uint8_t oper
     IR.sendIRbyte(buffer[i], timings.bit_mark, timings.zero_space, timings.one_space);
   }
 
-  IR.mark(timings.bit_mark);
-  IR.space(timings.one_space);  // 1
-  IR.mark(timings.bit_mark);
-  IR.space(timings.zero_space); // 0
-  IR.mark(timings.bit_mark);
-  IR.space(timings.one_space);  // 1
+  // THE MISSING LINK: YB1FA uses '1010' gap
+  IR.mark(timings.bit_mark); IR.space(timings.one_space);  // 1
+  IR.mark(timings.bit_mark); IR.space(timings.zero_space); // 0
+  IR.mark(timings.bit_mark); IR.space(timings.one_space);  // 1
+  IR.mark(timings.bit_mark); IR.space(timings.zero_space); // 0
 
   // Middle Message Space
   IR.mark(timings.bit_mark);
